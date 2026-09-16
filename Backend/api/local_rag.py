@@ -6,16 +6,18 @@ import hashlib
 import io
 import os
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from dotenv import load_dotenv
 from langchain_core.documents import Document
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pypdf import PdfReader
 
 from .database import connection
 from .llm_provider import configured_model, generate_answer, provider_name
+
+if TYPE_CHECKING:
+    from langchain_huggingface import HuggingFaceEmbeddings
 
 load_dotenv()
 
@@ -32,7 +34,7 @@ RELEVANCE_DISTANCE = float(os.getenv("ANYCART_RELEVANCE_DISTANCE", "0.55"))
 class CatalogRAG:
     """Persistent LangChain embedding retriever backed by PostgreSQL pgvector."""
 
-    _embedding_model: HuggingFaceEmbeddings | None = None
+    _embedding_model: Any = None
 
     def __init__(self, pdf_bytes: bytes, filename: str = "catalog.pdf") -> None:
         if not pdf_bytes:
@@ -46,8 +48,12 @@ class CatalogRAG:
         self._load_or_build(pdf_bytes)
 
     @classmethod
-    def _get_embedding_model(cls) -> HuggingFaceEmbeddings:
+    def _get_embedding_model(cls) -> Any:
         if cls._embedding_model is None:
+            # Loading PyTorch and sentence-transformers at API startup exceeds
+            # small cloud instances. Load them only when a catalog is uploaded.
+            from langchain_huggingface import HuggingFaceEmbeddings
+
             hf_token = os.getenv("HF_TOKEN", "").strip() or None
             model_kwargs: dict[str, Any] = {}
             if hf_token:
