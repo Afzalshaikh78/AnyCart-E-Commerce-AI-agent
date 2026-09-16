@@ -219,10 +219,6 @@ function App() {
   );
 
   useEffect(() => {
-    loadProducts();
-  }, []);
-
-  useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
@@ -248,6 +244,8 @@ function App() {
     const body = await response.json();
 
     if (!response.ok) {
+      setProducts([]);
+      setCatalogName("");
       setNotice(body.detail || "Catalog upload failed.");
     } else {
       setCatalogName(body.filename);
