@@ -6,18 +6,16 @@ import hashlib
 import io
 import os
 import re
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from dotenv import load_dotenv
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pypdf import PdfReader
+import requests
 
 from .database import connection
 from .llm_provider import configured_model, generate_answer, provider_name
-
-if TYPE_CHECKING:
-    from langchain_huggingface import HuggingFaceEmbeddings
 
 load_dotenv()
 
@@ -29,6 +27,44 @@ MAX_PDF_BYTES = 25 * 1024 * 1024
 # pgvector cosine distance is 1 - cosine similarity. A distance of 0.55
 # corresponds to roughly cosine similarity >= 0.45.
 RELEVANCE_DISTANCE = float(os.getenv("ANYCART_RELEVANCE_DISTANCE", "0.55"))
+
+
+class HuggingFaceApiEmbeddings:
+    """Remote embeddings keep the API service within free-host memory limits."""
+
+    def __init__(self, model_name: str, token: str) -> None:
+        self.token = token
+        self.url = os.getenv(
+            "HF_EMBEDDING_API_URL",
+            f"https://router.huggingface.co/hf-inference/models/{model_name}",
+        )
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        if not self.token:
+            raise RuntimeError("HF_TOKEN is required for Hugging Face embeddings.")
+        response = requests.post(
+            self.url,
+            headers={"Authorization": f"Bearer {self.token}"},
+            json={"inputs": texts, "options": {"wait_for_model": True}},
+            timeout=90,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, list) or len(payload) != len(texts):
+            raise RuntimeError("Unexpected Hugging Face embedding response.")
+        return [self._normalize(vector) for vector in payload]
+
+    def embed_query(self, text: str) -> list[float]:
+        return self.embed_documents([text])[0]
+
+    @staticmethod
+    def _normalize(vector: Any) -> list[float]:
+        if not isinstance(vector, list) or not vector or not all(isinstance(value, (int, float)) for value in vector):
+            raise RuntimeError("Hugging Face did not return a sentence embedding.")
+        magnitude = sum(float(value) ** 2 for value in vector) ** 0.5
+        if magnitude == 0:
+            raise RuntimeError("Hugging Face returned an empty embedding.")
+        return [float(value) / magnitude for value in vector]
 
 
 class CatalogRAG:
@@ -50,18 +86,9 @@ class CatalogRAG:
     @classmethod
     def _get_embedding_model(cls) -> Any:
         if cls._embedding_model is None:
-            # Loading PyTorch and sentence-transformers at API startup exceeds
-            # small cloud instances. Load them only when a catalog is uploaded.
-            from langchain_huggingface import HuggingFaceEmbeddings
-
-            hf_token = os.getenv("HF_TOKEN", "").strip() or None
-            model_kwargs: dict[str, Any] = {}
-            if hf_token:
-                model_kwargs["token"] = hf_token
-            cls._embedding_model = HuggingFaceEmbeddings(
-                model_name=DEFAULT_EMBEDDING_MODEL,
-                model_kwargs=model_kwargs,
-                encode_kwargs={"normalize_embeddings": True},
+            cls._embedding_model = HuggingFaceApiEmbeddings(
+                DEFAULT_EMBEDDING_MODEL,
+                os.getenv("HF_TOKEN", "").strip(),
             )
         return cls._embedding_model
 
