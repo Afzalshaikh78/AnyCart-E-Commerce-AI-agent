@@ -36,7 +36,7 @@ class HuggingFaceApiEmbeddings:
         self.token = token
         self.url = os.getenv(
             "HF_EMBEDDING_API_URL",
-            f"https://router.huggingface.co/hf-inference/models/{model_name}",
+            f"https://router.huggingface.co/hf-inference/models/{model_name}/pipeline/feature-extraction",
         )
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
