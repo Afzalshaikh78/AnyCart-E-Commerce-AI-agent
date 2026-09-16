@@ -167,24 +167,25 @@ class CatalogRAG:
             embeddings = self._get_embedding_model().embed_documents(
                 [chunk.page_content for chunk in chunks]
             )
-            conn.executemany(
-                """
-                INSERT INTO catalog_chunks
-                    (document_hash, chunk_id, source_file, page, content, embedding)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                """,
-                [
-                    (
-                        self.document_hash,
-                        chunk.metadata["chunk_id"],
-                        self.filename,
-                        chunk.metadata.get("page"),
-                        chunk.page_content,
-                        embedding,
-                    )
-                    for chunk, embedding in zip(chunks, embeddings, strict=True)
-                ],
-            )
+            with conn.cursor() as cursor:
+                cursor.executemany(
+                    """
+                    INSERT INTO catalog_chunks
+                        (document_hash, chunk_id, source_file, page, content, embedding)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    [
+                        (
+                            self.document_hash,
+                            chunk.metadata["chunk_id"],
+                            self.filename,
+                            chunk.metadata.get("page"),
+                            chunk.page_content,
+                            embedding,
+                        )
+                        for chunk, embedding in zip(chunks, embeddings, strict=True)
+                    ],
+                )
             self.chunk_count = len(chunks)
 
     def search(
