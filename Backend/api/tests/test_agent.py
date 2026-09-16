@@ -12,6 +12,11 @@ def test_order_intent_extracts_product_and_quantity() -> None:
     assert result["quantity"] == 2
 
 
+def test_trace_order_extracts_tracking_intent() -> None:
+    order_id = "123e4567-e89b-12d3-a456-426614174000"
+    assert classify(f"trace order {order_id}") == {"intent": "track", "order_id": order_id}
+
+
 def test_greeting_uses_conversation_intent() -> None:
     assert classify("hey hello") == {"intent": "conversation"}
 

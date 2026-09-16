@@ -28,7 +28,7 @@ def classify(message: str) -> dict[str, Any]:
         return {"intent": "conversation"}
     product_id = _product_id(message)
     order_id = _order_id(message)
-    if order_id and any(word in lower for word in ("track", "status", "delivery", "where")):
+    if order_id and any(word in lower for word in ("track", "trace", "status", "delivery", "where", "check")):
         return {"intent": "track", "order_id": order_id}
     if product_id and any(word in lower for word in ("buy", "order", "purchase")):
         return {"intent": "order", "product_id": product_id, "quantity": _quantity(message)}
@@ -55,6 +55,8 @@ def _product_id(message: str) -> str:
 
 def _order_id(message: str) -> str:
     match = re.search(r"\b(?:order[_ -]?id|order)\s*[:=]?\s*([a-f0-9-]{36})\b", message, re.I)
+    if not match:
+        match = re.search(r"\b([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\b", message, re.I)
     return match.group(1) if match else ""
 
 
@@ -133,7 +135,14 @@ def order_node(state: AgentState) -> dict[str, str]:
 
 def tracking_node(state: AgentState) -> dict[str, str]:
     result = lookup_order.invoke({"order_id": state["order_id"]})
-    return {"response": f"Order {state['order_id']} status: {result}"}
+    if "error" in result:
+        return {"response": result["error"]}
+    return {
+        "response": (
+            f"Order {result['order_id']} is {result['status']}. "
+            f"Product: {result['product_id']}, quantity: {result['quantity']}."
+        )
+    }
 
 
 builder = StateGraph(AgentState)
