@@ -1,6 +1,6 @@
-# AnyCart AI Commerce Platform
+# AnyCart AI E-Commerce Platform
 
-AnyCart is a full-stack AI commerce assistant that turns an uploaded product
+AnyCart is a full-stack AI E-commerce assistant that turns an uploaded product
 catalog PDF into a searchable shopping experience. It extracts products from
 the PDF, stores product data and orders in PostgreSQL, stores semantic
 embeddings with pgvector, and uses a LangGraph agent to recommend products,
