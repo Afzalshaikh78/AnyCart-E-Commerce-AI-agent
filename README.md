@@ -218,10 +218,4 @@ MISTRAL_MODEL=mistral-small-latest
 Neon PostgreSQL must support the `vector` extension. The app creates the
 extension and tables during backend startup.
 
-## Resume Bullet
-
-Built a full-stack AI commerce platform using React, FastAPI, LangGraph,
-LangChain, Hugging Face embeddings, Mistral AI, PostgreSQL, and pgvector,
-enabling PDF catalog ingestion, semantic product search, order placement, and
-order tracking through an agentic RAG workflow.
 
