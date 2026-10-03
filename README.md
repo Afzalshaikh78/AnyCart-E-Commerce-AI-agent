@@ -1,6 +1,6 @@
-# AnyCart AI E-Commerce Platform
+# AnyCart AI Commerce Platform
 
-AnyCart is a full-stack AI E-commerce assistant that turns an uploaded product
+AnyCart is a full-stack AI commerce assistant that turns an uploaded product
 catalog PDF into a searchable shopping experience. It extracts products from
 the PDF, stores product data and orders in PostgreSQL, stores semantic
 embeddings with pgvector, and uses a LangGraph agent to recommend products,
@@ -48,6 +48,7 @@ used by the assistant are extracted from the uploaded catalog, not hardcoded.
 - Track orders by order ID
 - Use LangGraph to route between recommendation, ordering, and tracking flows
 - Deployable frontend and backend with production environment variables
+- Persistent operational metrics for catalog uploads, chat requests, and order lookups
 
 ## Project Structure
 
@@ -60,6 +61,7 @@ used by the assistant are extracted from the uploaded catalog, not hardcoded.
 |   |   +-- local_rag.py      # PDF parsing, chunking, embeddings, retrieval
 |   |   +-- llm_provider.py   # Mistral and Hugging Face generation
 |   |   +-- main.py           # FastAPI routes
+|   |   +-- metrics.py        # Privacy-safe latency and success-rate telemetry
 |   |   +-- schemas.py        # API request schemas
 |   |   +-- requirements.txt
 |   |   +-- tests/
@@ -157,6 +159,7 @@ POST /api/catalog/upload
 GET  /api/catalog/products
 POST /api/chat
 GET  /api/orders/{order_id}
+GET  /api/metrics/summary
 ```
 
 ## Database Tables
@@ -164,10 +167,24 @@ GET  /api/orders/{order_id}
 - `products`: product rows extracted from the uploaded PDF
 - `orders`: customer orders created through the assistant
 - `catalog_chunks`: PDF text chunks and pgvector embeddings
+- `api_metrics`: request durations and outcomes; chat prompts and PDF text are never stored
 
 pgvector allows PostgreSQL to search by semantic similarity, so the assistant
 can find relevant catalog chunks even when the user does not use exact product
 keywords.
+
+## Measuring Results
+
+The application collects real, persistent measurements in PostgreSQL. The
+React dashboard and `GET /api/metrics/summary` show a rolling 30-day view of:
+
+- indexed products, embeddings, and orders
+- catalog upload and chat request counts
+- success rates, mean latency, and p95 latency for each measured operation
+
+Use the endpoint after exercising the deployed application with representative
+PDF uploads and chat queries. This gives you defensible resume figures based
+on your own deployment rather than invented accuracy or latency claims.
 
 ## Verification
 
@@ -218,4 +235,12 @@ MISTRAL_MODEL=mistral-small-latest
 Neon PostgreSQL must support the `vector` extension. The app creates the
 extension and tables during backend startup.
 
+## Resume Bullet
+
+Built a full-stack AI commerce platform using React, FastAPI, LangGraph,
+LangChain, Hugging Face embeddings, Mistral AI, PostgreSQL, and pgvector,
+enabling PDF catalog ingestion, semantic product search, order placement, and
+order tracking through an agentic RAG workflow. Instrumented the platform to
+report real 30-day request volume, success rate, mean latency, and p95 latency
+for catalog ingestion and AI chat.
 

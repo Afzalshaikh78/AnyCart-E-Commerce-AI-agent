@@ -58,11 +58,25 @@ def init_db() -> None:
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 PRIMARY KEY (document_hash, chunk_id)
             );
+            CREATE TABLE IF NOT EXISTS api_metrics (
+                metric_id BIGSERIAL PRIMARY KEY,
+                operation TEXT NOT NULL,
+                duration_ms DOUBLE PRECISION NOT NULL CHECK (duration_ms >= 0),
+                success BOOLEAN NOT NULL,
+                metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
             """
         )
         conn.execute(
             """
             CREATE INDEX IF NOT EXISTS catalog_chunks_embedding_idx
             ON catalog_chunks USING hnsw (embedding vector_cosine_ops)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS api_metrics_operation_created_at_idx
+            ON api_metrics (operation, created_at DESC)
             """
         )

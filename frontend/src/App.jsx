@@ -187,6 +187,38 @@ function ChatPanel({ messages, prompt, onPromptChange, onSubmit, chatEndRef }) {
   );
 }
 
+function MetricValue({ label, value }) {
+  return (
+    <div className="metric-value">
+      <span>{value ?? "No samples"}</span>
+      <small>{label}</small>
+    </div>
+  );
+}
+
+function MetricsPanel({ metrics }) {
+  const chat = metrics?.operations?.chat;
+  const upload = metrics?.operations?.catalog_upload;
+
+  return (
+    <section className="metrics-panel">
+      <div>
+        <p className="eyebrow text-[#aa6a3d]">MEASURED RESULTS</p>
+        <h2 className="font-display mt-2 text-2xl font-bold">System metrics</h2>
+        <p className="mt-1 text-sm text-[#77736c]">Rolling 30-day data from PostgreSQL.</p>
+      </div>
+      <div className="metric-grid">
+        <MetricValue label="indexed products" value={metrics?.catalog?.products ?? 0} />
+        <MetricValue label="pgvector chunks" value={metrics?.catalog?.chunks ?? 0} />
+        <MetricValue label="orders created" value={metrics?.catalog?.orders ?? 0} />
+        <MetricValue label="chat requests" value={chat?.requests ?? 0} />
+        <MetricValue label="chat p95 latency" value={chat ? `${chat.p95_latency_ms} ms` : null} />
+        <MetricValue label="upload p95 latency" value={upload ? `${upload.p95_latency_ms} ms` : null} />
+      </div>
+    </section>
+  );
+}
+
 // ---------- Main component ----------
 
 function App() {
@@ -203,6 +235,7 @@ function App() {
   const [uploading, setUploading] = useState(false);
   const [catalogName, setCatalogName] = useState("");
   const [notice, setNotice] = useState("");
+  const [metrics, setMetrics] = useState(null);
   const chatEndRef = useRef(null);
 
   const categories = useMemo(
@@ -226,6 +259,15 @@ function App() {
     const response = await fetch(`${API}/catalog/products`);
     if (response.ok) setProducts(await response.json());
   }
+
+  async function loadMetrics() {
+    const response = await fetch(`${API}/metrics/summary`);
+    if (response.ok) setMetrics(await response.json());
+  }
+
+  useEffect(() => {
+    loadMetrics();
+  }, []);
 
   async function uploadCatalog(event) {
     const file = event.target.files?.[0];
@@ -251,6 +293,7 @@ function App() {
       setCatalogName(body.filename);
       setNotice(`${body.products} products indexed from ${body.filename}`);
       await loadProducts();
+      await loadMetrics();
     }
 
     setUploading(false);
@@ -267,6 +310,7 @@ function App() {
       { role: "user", content: text },
       { role: "assistant", content: "Thinking...", pending: true },
     ]);
+    await loadMetrics();
 
     const response = await fetch(`${API}/chat`, {
       method: "POST",
@@ -311,6 +355,10 @@ function App() {
             onSubmit={sendMessage}
             chatEndRef={chatEndRef}
           />
+        </div>
+
+        <div className="mt-7">
+          <MetricsPanel metrics={metrics} />
         </div>
       </main>
     </div>
