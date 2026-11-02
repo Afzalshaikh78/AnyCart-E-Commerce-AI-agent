@@ -1,4 +1,4 @@
-# AnyCart AI Commerce Platform
+# AnyCart AI E-Commerce Platform
 
 AnyCart is a full-stack AI commerce assistant that turns an uploaded product
 catalog PDF into a searchable shopping experience. It extracts products from
