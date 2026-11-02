@@ -155,7 +155,7 @@ function ChatMessage({ message }) {
   );
 }
 
-function ChatPanel({ messages, prompt, onPromptChange, onSubmit, chatEndRef }) {
+function ChatPanel({ messages, prompt, onPromptChange, onSubmit, chatEndRef, sending }) {
   return (
     <section className="chat-panel max-h-135 overflow-hidden">
       <div className="flex items-center justify-between border-b border-white/10 pb-4">
@@ -181,7 +181,7 @@ function ChatPanel({ messages, prompt, onPromptChange, onSubmit, chatEndRef }) {
           onChange={(event) => onPromptChange(event.target.value)}
           placeholder="Ask about your catalog..."
         />
-        <button type="submit">Send</button>
+        <button type="submit" disabled={sending}>{sending ? "Sending..." : "Send"}</button>
       </form>
     </section>
   );
@@ -201,6 +201,7 @@ function App() {
   ]);
   const [prompt, setPrompt] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [sending, setSending] = useState(false);
   const [catalogName, setCatalogName] = useState("");
   const [notice, setNotice] = useState("");
   const chatEndRef = useRef(null);
@@ -258,31 +259,44 @@ function App() {
 
   async function sendMessage(event) {
     event?.preventDefault();
+    if (sending) return;
     const text = prompt.trim();
     if (!text) return;
 
     setPrompt("");
+    setSending(true);
     setMessages((current) => [
       ...current,
       { role: "user", content: text },
       { role: "assistant", content: "Thinking...", pending: true },
     ]);
-    const response = await fetch(`${API}/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text }),
-    });
-    const body = await response.json();
 
-    setMessages((current) => [
-      ...current.slice(0, -1),
-      {
-        role: "assistant",
-        content: response.ok
-          ? body.response
-          : body.detail || "The assistant could not respond.",
-      },
-    ]);
+    let answer = "Sorry, I couldn't complete that request. Please try again.";
+    try {
+      const response = await fetch(`${API}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text }),
+        signal: AbortSignal.timeout(90_000),
+      });
+      const body = await response.json();
+      answer = response.ok
+        ? body.response
+        : body.detail || "The assistant could not respond. Please try again.";
+    } catch {
+      answer = "I couldn't reach the assistant just now. Please try again.";
+    } finally {
+      setMessages((current) => {
+        const pendingIndex = current.findLastIndex((message) => message.pending);
+        if (pendingIndex === -1) return current;
+        return current.map((message, index) =>
+          index === pendingIndex
+            ? { role: "assistant", content: answer }
+            : message,
+        );
+      });
+      setSending(false);
+    }
   }
 
   return (
@@ -309,6 +323,7 @@ function App() {
             onPromptChange={setPrompt}
             onSubmit={sendMessage}
             chatEndRef={chatEndRef}
+            sending={sending}
           />
         </div>
       </main>

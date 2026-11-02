@@ -248,7 +248,10 @@ class CatalogRAG:
 
         results = self.search(query, max_distance=RELEVANCE_DISTANCE)
         if not results:
-            return "I could not find a matching product in the uploaded catalog."
+            return (
+                "That's outside the scope of this catalog. I can help with "
+                "questions about its products or related orders."
+            )
 
         context = "\n\n".join(
             f"[Page {item['page']}] {item['text']}" for item in results
